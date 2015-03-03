@@ -25,9 +25,12 @@ app.use(session({secret: 'jamaicanbacon', resave: true, saveUninitialized: false
 app.use(express.static(__dirname + '/public'));
 
 var restrict = function(req, res, next){
+  // If user exists
   if(req.session.user){
+    // Execute the next piece of middleware/endware
     next();
-  }else {
+  } else { // If user does not exist
+
     req.session.error = "Not allowed!";
     res.redirect('/login');
   }
@@ -35,8 +38,6 @@ var restrict = function(req, res, next){
 
 app.get('/', restrict,
 function(req, res) {
-  console.log('bode eee');
-  console.log(req.body);
   //if user is signed in
     res.render('index');
   //else
@@ -52,7 +53,34 @@ app.post('/login', function(req, res) {
   var username = req.body.username;
   var password = req.body.password;
 
+  if (username === 'hi' && password === 'hello') {
+    req.session.regenerate(function() {
+        req.session.user = username;
+        console.log('we\'re in the branch where user\'s been approved');
+        res.redirect('/restricted');
+    });
+  }else {
+    res.redirect('login');
+  }
+});
 
+app.post('/signup', function(req, res) {
+  var user = new User({
+          'username': req.body.username,
+          'password': req.body.password
+      }).save().then(function(){
+        console.log(user)
+        done();
+      });
+  console.log('in the signup branch')
+
+});
+
+app.get('/restricted', restrict,
+  function(req, res) {
+    res.render('index');
+  // response.send('This is the restricted area! Hello ' + request.session.user
+  //   + '! click <a href="/logout">here to logout</a>');
 });
 
 app.get('/create', restrict,
