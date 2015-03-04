@@ -48,106 +48,110 @@ app.get('/logout', function(req, res){
   });
 });
 
-app.get('/login', function(req, res) {
-  res.render('login');
-});
+app.route('/login')
 
-app.post('/login', function(req, res) {
+  .get(function(req, res) {
+    res.render('login');
+  })
 
-  var username = req.body.username;
-  var password = req.body.password;
+  .post(function(req, res) {
 
-  var user = new User({username: username});
+    var username = req.body.username;
+    var password = req.body.password;
 
-  user.fetch().then(function(found) {
-    if (found) {
-      var salt = found.attributes.salt;
-      var hash = bcrypt.hashSync(password, salt);
-      if (hash === found.attributes.password) {
-        req.session.regenerate(function(){
-          req.session.user = username;
-          res.redirect('/');
-        });
+    var user = new User({username: username});
+
+    user.fetch().then(function(found) {
+      if (found) {
+        var salt = found.attributes.salt;
+        var hash = bcrypt.hashSync(password, salt);
+        if (hash === found.attributes.password) {
+          req.session.regenerate(function(){
+            req.session.user = username;
+            res.redirect('/');
+          });
+        } else {
+          // res.send(200, 'incorect password');
+          res.redirect('/login');
+        }
       } else {
-        // res.send(200, 'incorect password');
+        // res.send(200, 'user not found');
         res.redirect('/login');
       }
-    } else {
-      // res.send(200, 'user not found');
-      res.redirect('/login');
-    }
+    });
   });
-});
 
-app.get('/signup', function(req, res){
-  res.render('signup');
-});
+app.route('/signup')
 
-app.post('/signup', function(req, res){
-  new User({username: req.body.username}).fetch().then(function(found) {
-    if (found) {
-      res.send(200, "username already taken");
-    } else {
-      var user = new User({
-        username: req.body.username,
-        password: req.body.password,
-      });
+  .get(function(req, res){
+    res.render('signup');
+  })
 
-      user.save().then(function(newUser) {
-        req.session.regenerate(function(){
-          req.session.user = newUser.attributes.username;
-          res.redirect('/');
+  .post(function(req, res){
+    new User({username: req.body.username}).fetch().then(function(found) {
+      if (found) {
+        res.send(200, "username already taken");
+      } else {
+        var user = new User({
+          username: req.body.username,
+          password: req.body.password,
         });
-      });
-    }
+
+        user.save().then(function(newUser) {
+          req.session.regenerate(function(){
+            req.session.user = newUser.attributes.username;
+            res.redirect('/');
+          });
+        });
+      }
+    });
   });
-});
 
 app.get('/create', checkUser,
 function(req, res) {
   res.render('index');
 });
 
-app.get('/links', checkUser,
-function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    res.send(200, links.models);
-  });
-});
-
-app.post('/links',
-function(req, res) {
-  var uri = req.body.url;
-
-  if (!util.isValidUrl(uri)) {
-    console.log('Not a valid url: ', uri);
-    return res.send(404);
-  }
-
-  new Link({ url: uri }).fetch().then(function(found) {
-    if (found) {
-      res.send(200, found.attributes);
-    } else {
-      util.getUrlTitle(uri, function(err, title) {
-        if (err) {
-          console.log('Error reading URL heading: ', err);
-          return res.send(404);
-        }
-
-        var link = new Link({
-          url: uri,
-          title: title,
-          base_url: req.headers.origin
-        });
-
-        link.save().then(function(newLink) {
-          Links.add(newLink);
-          res.send(200, newLink);
-        });
+app.route('/links')
+  .get(checkUser,
+    function(req, res) {
+      Links.reset().fetch().then(function(links) {
+        res.status(200).send(links.models);
       });
+  })
+
+  .post(function(req, res) {
+    var uri = req.body.url;
+
+    if (!util.isValidUrl(uri)) {
+      console.log('Not a valid url: ', uri);
+      return res.status(404).send();
     }
+
+    new Link({ url: uri }).fetch().then(function(found) {
+      if (found) {
+        res.send(200, found.attributes);
+      } else {
+        util.getUrlTitle(uri, function(err, title) {
+          if (err) {
+            console.log('Error reading URL heading: ', err);
+            return res.status(404).send();
+          }
+
+          var link = new Link({
+            url: uri,
+            title: title,
+            base_url: req.headers.origin
+          });
+
+          link.save().then(function(newLink) {
+            Links.add(newLink);
+            res.status(200).send(newLink);
+          });
+        });
+      }
+    });
   });
-});
 
 /************************************************************/
 // Write your authentication routes here
